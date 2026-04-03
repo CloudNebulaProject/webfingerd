@@ -122,6 +122,11 @@ with a matching tuple perform an upsert (update existing link).
   entries for all affected resource URIs are evicted.
 - **Revoking a service token** deletes all links associated with that token from both
   SQLite and the cache.
+- **Orphaned resources** (resources with zero links remaining after deletion/expiry)
+  are cleaned up by the TTL reaper and evicted from the cache.
+- The `domain_id` FK on `links` is intentional denormalization for query performance
+  (avoids joins on domain-scoped operations). Writes must enforce consistency with
+  the resource's `domain_id`.
 
 ### Key Decisions
 
@@ -371,6 +376,8 @@ base_url = "https://webfinger.example.com"
 
 [database]
 path = "/var/lib/webfingerd/webfingerd.db"
+# WAL mode is enabled by default for concurrent read performance
+wal_mode = true
 
 [cache]
 reaper_interval_secs = 30
@@ -388,9 +395,9 @@ challenge_ttl_secs = 3600
 
 [ui]
 enabled = true
-# session_secret is REQUIRED. No default. Server refuses to start without it.
+# session_secret is REQUIRED with no default. Server refuses to start without it.
 # Set via env: WEBFINGERD_UI__SESSION_SECRET
-session_secret = ""
+# session_secret = "your-secret-here"
 ```
 
 ## Deployment

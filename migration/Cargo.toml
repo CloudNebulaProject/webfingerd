@@ -1,6 +1,8 @@
 [package]
 name = "migration"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+sea-orm-migration = "1"
+async-trait = "0.1"

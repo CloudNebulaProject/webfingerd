@@ -1,14 +1,20 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub use sea_orm_migration::prelude::*;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+mod m20260403_000001_create_domains;
+mod m20260403_000002_create_resources;
+mod m20260403_000003_create_service_tokens;
+mod m20260403_000004_create_links;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+pub struct Migrator;
+
+#[async_trait::async_trait]
+impl MigratorTrait for Migrator {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        vec![
+            Box::new(m20260403_000001_create_domains::Migration),
+            Box::new(m20260403_000002_create_resources::Migration),
+            Box::new(m20260403_000003_create_service_tokens::Migration),
+            Box::new(m20260403_000004_create_links::Migration),
+        ]
     }
 }

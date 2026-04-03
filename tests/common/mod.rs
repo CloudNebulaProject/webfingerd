@@ -1,0 +1,66 @@
+use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, Statement};
+use sea_orm_migration::MigratorTrait;
+use std::sync::Arc;
+use webfingerd::cache::Cache;
+use webfingerd::config::*;
+use webfingerd::state::AppState;
+
+pub async fn setup_test_db() -> DatabaseConnection {
+    let opt = ConnectOptions::new("sqlite::memory:");
+    let db = Database::connect(opt).await.unwrap();
+    db.execute(Statement::from_string(
+        sea_orm::DatabaseBackend::Sqlite,
+        "PRAGMA journal_mode=WAL".to_string(),
+    ))
+    .await
+    .unwrap();
+    migration::Migrator::up(&db, None).await.unwrap();
+    db
+}
+
+pub fn test_settings() -> Settings {
+    Settings {
+        server: ServerConfig {
+            listen: "127.0.0.1:0".into(),
+            base_url: "http://localhost:8080".into(),
+        },
+        database: DatabaseConfig {
+            path: ":memory:".into(),
+            wal_mode: true,
+        },
+        cache: CacheConfig {
+            reaper_interval_secs: 1,
+        },
+        rate_limit: RateLimitConfig {
+            public_rpm: 1000,
+            api_rpm: 1000,
+            batch_rpm: 100,
+            batch_max_links: 500,
+        },
+        challenge: ChallengeConfig {
+            dns_txt_prefix: "_webfinger-challenge".into(),
+            http_well_known_path: ".well-known/webfinger-verify".into(),
+            challenge_ttl_secs: 3600,
+        },
+        ui: UiConfig {
+            enabled: false,
+            session_secret: "test-secret-at-least-32-bytes-long-for-signing".into(),
+        },
+    }
+}
+
+pub async fn test_state() -> AppState {
+    test_state_with_settings(test_settings()).await
+}
+
+pub async fn test_state_with_settings(settings: Settings) -> AppState {
+    let db = setup_test_db().await;
+    let cache = Cache::new();
+    cache.hydrate(&db).await.unwrap();
+    AppState {
+        db,
+        cache,
+        settings: Arc::new(settings),
+        challenge_verifier: Arc::new(webfingerd::challenge::MockChallengeVerifier),
+    }
+}

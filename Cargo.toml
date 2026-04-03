@@ -1,0 +1,42 @@
+[workspace]
+members = [".", "migration"]
+
+[package]
+name = "webfingerd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+sea-orm = { version = "1", features = ["sqlx-sqlite", "runtime-tokio-rustls"] }
+sea-orm-migration = "1"
+dashmap = "6"
+governor = "0.8"
+askama = "0.12"
+askama_axum = "0.4"
+argon2 = "0.5"
+config = "0.14"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+hickory-resolver = "0.25"
+reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
+glob-match = "0.2"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "request-id", "trace", "util"] }
+axum-extra = { version = "0.10", features = ["cookie-signed"] }
+rand = "0.8"
+base64 = "0.22"
+thiserror = "2"
+urlencoding = "2"
+async-trait = "0.1"
+
+[dev-dependencies]
+axum-test = "16"
+tempfile = "3"

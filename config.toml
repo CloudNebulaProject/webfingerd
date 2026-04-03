@@ -1,0 +1,25 @@
+[server]
+listen = "0.0.0.0:8080"
+base_url = "http://localhost:8080"
+
+[database]
+path = "webfingerd.db"
+wal_mode = true
+
+[cache]
+reaper_interval_secs = 30
+
+[rate_limit]
+public_rpm = 60
+api_rpm = 300
+batch_rpm = 10
+batch_max_links = 500
+
+[challenge]
+dns_txt_prefix = "_webfinger-challenge"
+http_well_known_path = ".well-known/webfinger-verify"
+challenge_ttl_secs = 3600
+
+[ui]
+enabled = false
+session_secret = ""

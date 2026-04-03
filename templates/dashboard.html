@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard - webfingerd{% endblock %}
+{% block nav %}<a href="/ui/logout">Logout</a>{% endblock %}
+{% block content %}
+<h2>Your Domains</h2>
+{% if domains.is_empty() %}
+<p>No domains found for this token.</p>
+{% else %}
+<table>
+  <thead><tr><th>Domain</th><th>Status</th><th>Links</th><th></th></tr></thead>
+  <tbody>
+  {% for d in domains %}
+  <tr>
+    <td><a href="/ui/domains/{{ d.id }}">{{ d.domain }}</a></td>
+    <td>{% if d.verified %}<span class="badge badge-green">Verified</span>{% else %}<span class="badge badge-yellow">Pending</span>{% endif %}</td>
+    <td>{{ d.link_count }}</td>
+    <td><a href="/ui/domains/{{ d.id }}">Manage</a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

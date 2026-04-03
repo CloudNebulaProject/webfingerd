@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block title %}Tokens - {{ domain_name }} - webfingerd{% endblock %}
+{% block nav %}<a href="/ui/domains/{{ domain_id }}">Back</a> | <a href="/ui/logout">Logout</a>{% endblock %}
+{% block content %}
+<h2>Service Tokens for {{ domain_name }}</h2>
+
+{% if tokens.is_empty() %}
+<p>No service tokens yet.</p>
+{% else %}
+<table>
+  <thead><tr><th>Name</th><th>Allowed Rels</th><th>Resource Pattern</th><th>Created</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for t in tokens %}
+  <tr>
+    <td>{{ t.name }}</td>
+    <td>{{ t.allowed_rels }}</td>
+    <td>{{ t.resource_pattern }}</td>
+    <td>{{ t.created_at }}</td>
+    <td>{% if t.revoked %}<span class="badge badge-yellow">Revoked</span>{% else %}<span class="badge badge-green">Active</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

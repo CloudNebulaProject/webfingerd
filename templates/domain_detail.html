@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block title %}{{ domain.domain }} - webfingerd{% endblock %}
+{% block nav %}<a href="/ui/dashboard">Dashboard</a> | <a href="/ui/logout">Logout</a>{% endblock %}
+{% block content %}
+<h2>{{ domain.domain }}</h2>
+<div class="card">
+  <p><strong>Status:</strong> {% if domain.verified %}<span class="badge badge-green">Verified</span>{% else %}<span class="badge badge-yellow">Pending</span>{% endif %}</p>
+  <p><strong>Challenge Type:</strong> {{ domain.challenge_type }}</p>
+  <p><strong>Created:</strong> {{ domain.created_at }}</p>
+</div>
+
+<h3>Service Tokens</h3>
+<p><a href="/ui/domains/{{ domain.id }}/tokens">Manage Tokens</a></p>
+
+<h3>Links</h3>
+<p><a href="/ui/domains/{{ domain.id }}/links">Browse Links</a></p>
+{% endblock %}

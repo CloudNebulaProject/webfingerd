@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block title %}Login - webfingerd{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 2rem auto;">
+  <h2 style="margin-bottom: 1rem;">Domain Owner Login</h2>
+  {% if let Some(error) = error %}
+  <div class="flash flash-error">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="/ui/login">
+    <label for="token">Owner Token</label>
+    <input type="password" name="token" id="token" required placeholder="Paste your owner token">
+    <button type="submit" class="btn" style="width: 100%; margin-top: 0.5rem;">Login</button>
+  </form>
+</div>
+{% endblock %}

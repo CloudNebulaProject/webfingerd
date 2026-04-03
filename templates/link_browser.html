@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block title %}Links - {{ domain_name }} - webfingerd{% endblock %}
+{% block nav %}<a href="/ui/domains/{{ domain_id }}">Back</a> | <a href="/ui/logout">Logout</a>{% endblock %}
+{% block content %}
+<h2>Links for {{ domain_name }}</h2>
+
+{% if links.is_empty() %}
+<p>No links registered yet.</p>
+{% else %}
+<table>
+  <thead><tr><th>Resource</th><th>Rel</th><th>Href</th><th>Type</th><th>Expires</th></tr></thead>
+  <tbody>
+  {% for l in links %}
+  <tr>
+    <td>{{ l.resource_uri }}</td>
+    <td>{{ l.rel }}</td>
+    <td>{{ l.href }}</td>
+    <td>{{ l.link_type }}</td>
+    <td>{{ l.expires_at }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

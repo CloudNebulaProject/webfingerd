@@ -42,10 +42,15 @@ pub fn router(state: AppState) -> Router {
             rate_limit::rate_limit_by_token(limiter, req, next)
         }));
 
-    Router::new()
+    let mut app = Router::new()
         .merge(public_routes)
         .merge(api_routes)
         .merge(health::router())
-        .merge(metrics::router())
-        .with_state(state)
+        .merge(metrics::router());
+
+    if state.settings.ui.enabled {
+        app = app.merge(crate::ui::router());
+    }
+
+    app.with_state(state)
 }

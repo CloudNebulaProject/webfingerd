@@ -14,7 +14,6 @@ sea-orm-migration = "1"
 dashmap = "6"
 governor = "0.8"
 askama = "0.12"
-askama_axum = "0.4"
 argon2 = "0.5"
 config = "0.14"
 serde = { version = "1", features = ["derive"] }

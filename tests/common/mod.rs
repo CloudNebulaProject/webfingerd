@@ -1,3 +1,4 @@
+use axum_extra::extract::cookie::Key;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, Statement};
 use sea_orm_migration::MigratorTrait;
@@ -45,7 +46,7 @@ pub fn test_settings() -> Settings {
         },
         ui: UiConfig {
             enabled: false,
-            session_secret: "test-secret-at-least-32-bytes-long-for-signing".into(),
+            session_secret: "test-secret-that-must-be-at-least-sixty-four-bytes-long-for-cookie-signing-key-requirements".into(),
         },
     }
 }
@@ -67,11 +68,14 @@ pub async fn test_state_with_settings(settings: Settings) -> AppState {
             recorder.handle()
         });
 
+    let cookie_key = Key::from(settings.ui.session_secret.as_bytes());
+
     AppState {
         db,
         cache,
         settings: Arc::new(settings),
         challenge_verifier: Arc::new(webfingerd::challenge::MockChallengeVerifier),
         metrics_handle,
+        cookie_key,
     }
 }

@@ -1,6 +1,7 @@
 pub mod domains;
 mod health;
 mod host_meta;
+pub mod tokens;
 mod webfinger;
 
 use axum::Router;
@@ -11,6 +12,7 @@ pub fn router(state: AppState) -> Router {
         .merge(webfinger::router())
         .merge(host_meta::router())
         .merge(domains::router())
+        .merge(tokens::router())
         .merge(health::router())
         .with_state(state)
 }

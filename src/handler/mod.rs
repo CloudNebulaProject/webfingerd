@@ -1,3 +1,4 @@
+pub mod domains;
 mod health;
 mod host_meta;
 mod webfinger;
@@ -9,6 +10,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .merge(webfinger::router())
         .merge(host_meta::router())
+        .merge(domains::router())
         .merge(health::router())
         .with_state(state)
 }

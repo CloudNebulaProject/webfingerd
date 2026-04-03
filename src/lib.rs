@@ -5,4 +5,5 @@ pub mod config;
 pub mod entity;
 pub mod error;
 pub mod handler;
+pub mod reaper;
 pub mod state;

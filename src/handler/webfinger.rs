@@ -35,15 +35,36 @@ async fn webfinger(
     State(state): State<AppState>,
     uri: Uri,
 ) -> AppResult<Response> {
+    let start = std::time::Instant::now();
+
     let (resource_opt, rels) = parse_webfinger_query(&uri);
 
     let resource = resource_opt
         .ok_or_else(|| AppError::BadRequest("missing resource parameter".into()))?;
 
-    let cached = state
-        .cache
-        .get(&resource)
-        .ok_or(AppError::NotFound)?;
+    // Extract domain from resource for metrics labeling
+    let resource_domain = resource
+        .split('@')
+        .nth(1)
+        .or_else(|| {
+            // Handle URI-style resources like https://domain/path
+            resource.split("://").nth(1).and_then(|s| s.split('/').next())
+        })
+        .unwrap_or("unknown")
+        .to_string();
+
+    let cached = match state.cache.get(&resource) {
+        Some(c) => {
+            metrics::counter!("webfinger_queries_total", "domain" => resource_domain.clone(), "status" => "hit").increment(1);
+            c
+        }
+        None => {
+            metrics::counter!("webfinger_queries_total", "domain" => resource_domain.clone(), "status" => "miss").increment(1);
+            let elapsed = start.elapsed().as_secs_f64();
+            metrics::histogram!("webfinger_query_duration_seconds").record(elapsed);
+            return Err(AppError::NotFound);
+        }
+    };
 
     let links: Vec<serde_json::Value> = cached
         .links
@@ -93,6 +114,9 @@ async fn webfinger(
     }
 
     response_body.insert("links".into(), json!(links));
+
+    let elapsed = start.elapsed().as_secs_f64();
+    metrics::histogram!("webfinger_query_duration_seconds").record(elapsed);
 
     Ok((
         [

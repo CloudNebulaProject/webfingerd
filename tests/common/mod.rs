@@ -1,3 +1,4 @@
+use metrics_exporter_prometheus::PrometheusBuilder;
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, Statement};
 use sea_orm_migration::MigratorTrait;
 use std::sync::Arc;
@@ -57,10 +58,20 @@ pub async fn test_state_with_settings(settings: Settings) -> AppState {
     let db = setup_test_db().await;
     let cache = Cache::new();
     cache.hydrate(&db).await.unwrap();
+    // Each test gets its own metrics recorder. If install_recorder fails because
+    // another test already installed one, build a standalone recorder and grab its handle.
+    let metrics_handle = PrometheusBuilder::new()
+        .install_recorder()
+        .unwrap_or_else(|_| {
+            let recorder = PrometheusBuilder::new().build_recorder();
+            recorder.handle()
+        });
+
     AppState {
         db,
         cache,
         settings: Arc::new(settings),
         challenge_verifier: Arc::new(webfingerd::challenge::MockChallengeVerifier),
+        metrics_handle,
     }
 }

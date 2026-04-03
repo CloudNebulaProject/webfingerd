@@ -2,6 +2,7 @@ pub mod domains;
 mod health;
 mod host_meta;
 pub mod links;
+mod metrics;
 pub mod tokens;
 mod webfinger;
 
@@ -45,5 +46,6 @@ pub fn router(state: AppState) -> Router {
         .merge(public_routes)
         .merge(api_routes)
         .merge(health::router())
+        .merge(metrics::router())
         .with_state(state)
 }

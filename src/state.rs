@@ -1,3 +1,4 @@
+use metrics_exporter_prometheus::PrometheusHandle;
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
@@ -11,4 +12,5 @@ pub struct AppState {
     pub cache: Cache,
     pub settings: Arc<Settings>,
     pub challenge_verifier: Arc<dyn ChallengeVerifier>,
+    pub metrics_handle: PrometheusHandle,
 }

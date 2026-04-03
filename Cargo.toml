@@ -38,5 +38,6 @@ urlencoding = "2"
 async-trait = "0.1"
 
 [dev-dependencies]
-axum-test = "16"
+axum-test = "20"
+migration = { path = "migration" }
 tempfile = "3"

@@ -51,16 +51,29 @@ are loaded from SQLite into the cache.
 
 ### domains
 
-| Column            | Type     | Notes                          |
-|-------------------|----------|--------------------------------|
-| id                | TEXT PK  | UUID                           |
-| domain            | TEXT     | UNIQUE, e.g. alice.example     |
-| owner_token_hash  | TEXT     | argon2 hash                    |
-| challenge_type    | TEXT     | dns-01 or http-01              |
-| challenge_token   | TEXT     | nullable, pending challenge    |
-| verified          | BOOL     |                                |
-| created_at        | DATETIME |                                |
-| verified_at       | DATETIME |                                |
+| Column              | Type     | Notes                          |
+|---------------------|----------|--------------------------------|
+| id                  | TEXT PK  | UUID                           |
+| domain              | TEXT     | UNIQUE, e.g. alice.example     |
+| owner_token_hash    | TEXT     | argon2 hash                    |
+| registration_secret | TEXT     | argon2 hash, for verify auth   |
+| challenge_type      | TEXT     | dns-01 or http-01              |
+| challenge_token     | TEXT     | nullable, pending challenge    |
+| verified            | BOOL     |                                |
+| created_at          | DATETIME |                                |
+| verified_at         | DATETIME |                                |
+
+### resources
+
+| Column       | Type     | Notes                                        |
+|--------------|----------|----------------------------------------------|
+| id           | TEXT PK  | UUID                                         |
+| domain_id    | TEXT FK  | references domains.id                        |
+| resource_uri | TEXT     | UNIQUE, canonical URI e.g. acct:alice@domain |
+| aliases      | TEXT     | nullable, JSON array of alternative URIs     |
+| properties   | TEXT     | nullable, JSON object for resource-level metadata |
+| created_at   | DATETIME |                                              |
+| updated_at   | DATETIME |                                              |
 
 ### service_tokens
 
@@ -80,9 +93,9 @@ are loaded from SQLite into the cache.
 | Column           | Type     | Notes                                |
 |------------------|----------|--------------------------------------|
 | id               | TEXT PK  | UUID                                 |
+| resource_id      | TEXT FK  | references resources.id              |
 | service_token_id | TEXT FK  | references service_tokens.id         |
 | domain_id        | TEXT FK  | references domains.id                |
-| resource_uri     | TEXT     | e.g. acct:alice@alice.example        |
 | rel              | TEXT     |                                      |
 | href             | TEXT     | nullable                             |
 | type             | TEXT     | nullable, media type                 |
@@ -93,24 +106,43 @@ are loaded from SQLite into the cache.
 | created_at       | DATETIME |                                      |
 | expires_at       | DATETIME | nullable, computed from ttl          |
 
+**Unique constraint:** `(resource_id, rel, href)` — prevents duplicate links. Writes
+with a matching tuple perform an upsert (update existing link).
+
 ### Relationships
 
+- domains 1:N resources
 - domains 1:N service_tokens
-- domains 1:N links
+- resources 1:N links
 - service_tokens 1:N links
+
+### Cascade Behavior
+
+- **Deleting a domain** deletes all its resources, service tokens, and links. Cache
+  entries for all affected resource URIs are evicted.
+- **Revoking a service token** deletes all links associated with that token from both
+  SQLite and the cache.
 
 ### Key Decisions
 
-- **resource_pattern** uses glob matching. `acct:*@alice.example` means any user at the
-  domain. Domain owners can restrict further, e.g. `acct:blog-*@alice.example`.
+- **resources** table stores the JRD `subject` (as `resource_uri`) and `aliases` per
+  resource. RFC 7033 requires `subject` in the response. Services create or reference
+  a resource when registering links.
+- **resource_pattern** uses glob matching via the `glob-match` crate. `*` matches any
+  sequence of characters (including none). Patterns are validated at creation time:
+  they must contain at least one `@` and a domain suffix matching the token's domain.
+  Overly broad patterns like `*` are rejected.
 - **allowed_rels** is a JSON array. On registration, webfingerd validates the incoming
   link's rel is in this list.
 - **links** stores individual link objects, not full JRD responses. At query time,
-  webfingerd assembles the JRD from all links matching the resource (and optional rel
-  filter).
+  webfingerd assembles the JRD from the resource's subject/aliases plus all matching
+  links (filtered by optional `rel` parameters).
 - **ttl_seconds** nullable. NULL means permanent. When set, expires_at is computed as
   created_at + ttl_seconds. The reaper cleans expired entries.
 - Token hashes use argon2. Plaintext tokens are never stored.
+- **Domain re-verification** is not implemented in v1. Once verified, a domain stays
+  verified. This is a known limitation. A future `reverify_interval` mechanism could
+  periodically re-check DNS/HTTP challenges to detect domain ownership changes.
 
 ## Authorization Flow
 
@@ -118,16 +150,26 @@ are loaded from SQLite into the cache.
 
 1. Domain owner calls `POST /api/v1/domains` with their domain name and preferred
    challenge type (dns-01 or http-01).
-2. webfingerd generates a challenge token and returns instructions:
+2. webfingerd generates a challenge token and a **registration secret**, returning both
+   along with challenge instructions:
    - **dns-01**: create a TXT record at `_webfinger-challenge.{domain}` with the token
    - **http-01**: serve the token at `https://{domain}/.well-known/webfinger-verify/{token}`
+   - The registration secret is stored as an argon2 hash. It is required to call the
+     verify endpoint, preventing race conditions where an attacker who knows the domain
+     ID could verify before the legitimate owner.
 3. Domain owner provisions the challenge.
-4. Domain owner calls `POST /api/v1/domains/{id}/verify`.
+4. Domain owner calls `POST /api/v1/domains/{id}/verify` with the registration secret.
 5. webfingerd verifies the challenge (DNS lookup or HTTP GET).
 6. On success, returns a domain owner token. This token is shown once and stored only
-   as an argon2 hash.
+   as an argon2 hash. The registration secret is invalidated.
 
 Challenge tokens expire after a configurable TTL (default 1 hour).
+
+### Owner Token Rotation
+
+Domain owners can rotate their token via `POST /api/v1/domains/{id}/rotate-token`
+(authenticated with the current owner token). This generates a new token, invalidates
+the old hash, and returns the new token once.
 
 ### Phase 2: Service Token Creation
 
@@ -159,8 +201,9 @@ Challenge tokens expire after a configurable TTL (default 1 hour).
 
 ### Structure
 
-A `DashMap<String, Vec<Link>>` keyed by `resource_uri`. DashMap provides concurrent
-lock-free reads suitable for the high-read, low-write webfinger query pattern.
+A `DashMap<String, CachedResource>` keyed by `resource_uri`, where `CachedResource`
+contains the subject, aliases, and a `Vec<Link>`. DashMap provides concurrent lock-free
+reads suitable for the high-read, low-write webfinger query pattern.
 
 ### Cache Operations
 
@@ -173,16 +216,23 @@ lock-free reads suitable for the high-read, low-write webfinger query pattern.
 
 ### Query Path
 
-1. Parse `resource` and optional `rel` parameters from the request.
+1. Parse `resource` and optional `rel` parameters from the request. Multiple `rel`
+   parameters are supported per RFC 7033 Section 4.1.
 2. Look up `resource_uri` in the DashMap. Return 404 if not found.
-3. If `rel` parameters are present, filter the Vec<Link> to matching rels.
-4. Assemble JRD response (subject, aliases, links array).
+3. If `rel` parameters are present, filter links to those whose `rel` matches **any**
+   of the provided values. All other JRD fields (subject, aliases, properties) are
+   returned regardless of `rel` filtering.
+4. Assemble JRD response from the cached resource's subject, aliases, and filtered links.
 5. Return `application/jrd+json` with CORS headers (`Access-Control-Allow-Origin: *`).
+   The management API does NOT send `Access-Control-Allow-Origin: *`.
 
 ### host-meta
 
-`GET /.well-known/host-meta` returns a static XRD document containing an LRDD template
-pointing to the webfinger endpoint. No cache interaction needed.
+`GET /.well-known/host-meta` returns an XRD (XML) document containing an LRDD template
+pointing to the webfinger endpoint. The response inspects the `Host` header (or
+`X-Forwarded-Host` behind a reverse proxy) and returns a domain-appropriate XRD. Returns
+404 for unregistered or unverified hosts. Only `application/xrd+xml` is served; JSON
+content negotiation is not supported for host-meta.
 
 ## REST API
 
@@ -190,10 +240,11 @@ pointing to the webfinger endpoint. No cache interaction needed.
 
 | Method | Path                          | Auth         | Description                |
 |--------|-------------------------------|--------------|----------------------------|
-| POST   | /api/v1/domains               | none         | Register domain, get challenge |
-| GET    | /api/v1/domains/{id}          | owner_token  | Get domain status          |
-| POST   | /api/v1/domains/{id}/verify   | none         | Submit for verification    |
-| DELETE | /api/v1/domains/{id}          | owner_token  | Remove domain + all links  |
+| POST   | /api/v1/domains                    | none              | Register domain, get challenge + registration secret |
+| GET    | /api/v1/domains/{id}               | owner_token       | Get domain status          |
+| POST   | /api/v1/domains/{id}/verify        | registration_secret | Submit for verification  |
+| POST   | /api/v1/domains/{id}/rotate-token  | owner_token       | Rotate owner token         |
+| DELETE | /api/v1/domains/{id}               | owner_token       | Remove domain + all tokens + all links |
 
 ### Service Tokens
 
@@ -224,7 +275,7 @@ pointing to the webfinger endpoint. No cache interaction needed.
 
 | Method | Path      | Auth | Description        |
 |--------|-----------|------|--------------------|
-| GET    | /metrics  | none | Prometheus metrics |
+| GET    | /metrics  | none | Prometheus metrics (restrict via network/firewall) |
 | GET    | /healthz  | none | Health check       |
 
 ### Error Responses
@@ -241,6 +292,10 @@ not reveal which resources exist vs which domains are registered.
 `POST /api/v1/links/batch` accepts an array of link objects. Services like oxifed
 registering many users at startup benefit from bulk registration rather than N individual
 calls. Maximum 500 links per batch (configurable).
+
+Batch uses **all-or-nothing transaction semantics**. If any link in the batch fails
+validation, the entire batch is rejected and no links are written. The error response
+includes the index and reason for each failing link.
 
 ## Web UI
 
@@ -333,7 +388,9 @@ challenge_ttl_secs = 3600
 
 [ui]
 enabled = true
-session_secret = "override-via-env"
+# session_secret is REQUIRED. No default. Server refuses to start without it.
+# Set via env: WEBFINGERD_UI__SESSION_SECRET
+session_secret = ""
 ```
 
 ## Deployment
@@ -344,6 +401,8 @@ session_secret = "override-via-env"
 - User points their domain's DNS to the reverse proxy (A/CNAME record)
 - Multiple domains can point to the same instance. webfingerd resolves the correct
   links based on the resource parameter, not the Host header.
+- The `/metrics` endpoint should be restricted to internal networks via reverse proxy
+  rules or firewall, as it exposes operational details (domain names, error rates).
 
 ## Crate Dependencies
 

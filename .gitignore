@@ -24,3 +24,4 @@ target
 *.db-shm
 *.db-wal
 
+.claude/worktrees

@@ -61,8 +61,12 @@ async fn main() {
         .install_recorder()
         .expect("failed to install metrics recorder");
 
-    // Derive cookie signing key from session secret
-    let cookie_key = Key::from(settings.ui.session_secret.as_bytes());
+    // Derive cookie signing key — hash the secret to get 64 bytes for Key::from
+    use sha2::{Sha512, Digest};
+    let mut hasher = Sha512::new();
+    hasher.update(settings.ui.session_secret.as_bytes());
+    let hash = hasher.finalize();
+    let cookie_key = Key::from(&hash[..]);
 
     // Spawn background reaper for expired links
     reaper::spawn_reaper(

@@ -54,7 +54,9 @@ impl Settings {
             .add_source(config::File::with_name("config").required(false))
             .add_source(
                 config::Environment::with_prefix("WEBFINGERD")
-                    .separator("__"),
+                    .prefix_separator("__")
+                    .separator("__")
+                    .try_parsing(true),
             )
             .build()?;
 

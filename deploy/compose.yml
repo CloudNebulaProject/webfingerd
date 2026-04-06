@@ -21,20 +21,21 @@ services:
     container_name: webfingerd
     restart: unless-stopped
     environment:
-      WEBFINGERD_SERVER__LISTEN: "0.0.0.0:8080"
-      WEBFINGERD_SERVER__BASE_URL: "https://webfinger.aopc.cloud"
-      WEBFINGERD_DATABASE__PATH: "/app/data/webfingerd.db"
-      WEBFINGERD_DATABASE__WAL_MODE: "true"
-      WEBFINGERD_CACHE__REAPER_INTERVAL_SECS: "30"
-      WEBFINGERD_RATE_LIMIT__PUBLIC_RPM: "60"
-      WEBFINGERD_RATE_LIMIT__API_RPM: "300"
-      WEBFINGERD_RATE_LIMIT__BATCH_RPM: "10"
-      WEBFINGERD_RATE_LIMIT__BATCH_MAX_LINKS: "500"
-      WEBFINGERD_CHALLENGE__DNS_TXT_PREFIX: "_webfinger-challenge"
-      WEBFINGERD_CHALLENGE__HTTP_WELL_KNOWN_PATH: ".well-known/webfinger-verify"
-      WEBFINGERD_CHALLENGE__CHALLENGE_TTL_SECS: "3600"
-      WEBFINGERD_UI__ENABLED: "true"
-      WEBFINGERD_UI__SESSION_SECRET: "${WEBFINGERD_SESSION_SECRET}"
+      RUST_LOG: "info"
+      WEBFINGERD__SERVER__LISTEN: "0.0.0.0:8080"
+      WEBFINGERD__SERVER__BASE_URL: "https://webfinger.aopc.cloud"
+      WEBFINGERD__DATABASE__PATH: "/app/data/webfingerd.db"
+      WEBFINGERD__DATABASE__WAL_MODE: "true"
+      WEBFINGERD__CACHE__REAPER_INTERVAL_SECS: "30"
+      WEBFINGERD__RATE_LIMIT__PUBLIC_RPM: "60"
+      WEBFINGERD__RATE_LIMIT__API_RPM: "300"
+      WEBFINGERD__RATE_LIMIT__BATCH_RPM: "10"
+      WEBFINGERD__RATE_LIMIT__BATCH_MAX_LINKS: "500"
+      WEBFINGERD__CHALLENGE__DNS_TXT_PREFIX: "_webfinger-challenge"
+      WEBFINGERD__CHALLENGE__HTTP_WELL_KNOWN_PATH: ".well-known/webfinger-verify"
+      WEBFINGERD__CHALLENGE__CHALLENGE_TTL_SECS: "3600"
+      WEBFINGERD__UI__ENABLED: "true"
+      WEBFINGERD__UI__SESSION_SECRET: "${WEBFINGERD_SESSION_SECRET}"
     volumes:
       - webfingerd-data:/app/data
     networks:
@@ -48,7 +49,7 @@ services:
       - traefik.http.services.webfingerd.loadbalancer.server.port=8080
 
       # Public WebFinger on aopc.cloud (only well-known paths)
-      - traefik.http.routers.webfingerd-public.rule=Host(`aopc.cloud`) && PathPrefix(`/.well-known/webfinger`, `/.well-known/host-meta`)
+      - traefik.http.routers.webfingerd-public.rule=Host(`aopc.cloud`) && (PathPrefix(`/.well-known/webfinger`) || PathPrefix(`/.well-known/host-meta`))
       - traefik.http.routers.webfingerd-public.entrypoints=websecure
       - traefik.http.routers.webfingerd-public.tls.certresolver=le
       - traefik.http.routers.webfingerd-public.service=webfingerd

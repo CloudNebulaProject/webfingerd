@@ -1,32 +1,17 @@
 # Multi-stage build for webfingerd
 # Build stage
-FROM rust:1.87-bookworm AS builder
+FROM rust:1.88-bookworm AS builder
 
 WORKDIR /build
 
-# Copy manifests and lock
+# Copy everything needed for build
 COPY Cargo.toml Cargo.lock ./
-COPY migration/Cargo.toml ./migration/
-
-# Create dummy sources for dependency caching
-RUN mkdir src && echo "fn main() {}" > src/main.rs && echo "" > src/lib.rs \
-    && mkdir -p migration/src && echo "" > migration/src/lib.rs
-
-# Build dependencies only (cached layer)
-ARG TARGETPLATFORM
-RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry-${TARGETPLATFORM} \
-    --mount=type=cache,target=/build/target,id=build-target-${TARGETPLATFORM} \
-    cargo build --release 2>/dev/null || true
-
-# Copy actual source code
+COPY migration ./migration
 COPY src ./src
-COPY migration/src ./migration/src
 COPY templates ./templates
 
 # Build release binary
-RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry-${TARGETPLATFORM} \
-    --mount=type=cache,target=/build/target,id=build-target-${TARGETPLATFORM} \
-    cargo build --release && \
+RUN cargo build --release && \
     cp target/release/webfingerd /webfingerd
 
 # Runtime stage

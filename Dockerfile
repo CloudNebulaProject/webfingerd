@@ -18,7 +18,7 @@ RUN cargo build --release && \
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get install -y --no-install-recommends ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -r -u 1000 -s /bin/false webfingerd && \
@@ -36,6 +36,6 @@ USER webfingerd
 EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["sh", "-c", "wget -q --spider http://localhost:8080/healthz || exit 1"]
+    CMD ["curl", "-sf", "http://localhost:8080/healthz"]
 
 ENTRYPOINT ["/usr/local/bin/webfingerd"]

@@ -43,6 +43,7 @@ services:
     labels:
       # Management UI + API on webfinger.aopc.cloud
       - traefik.enable=true
+      - traefik.docker.network=solstice-ci_core
       - traefik.http.routers.webfingerd-mgmt.rule=Host(`webfinger.aopc.cloud`)
       - traefik.http.routers.webfingerd-mgmt.entrypoints=websecure
       - traefik.http.routers.webfingerd-mgmt.tls.certresolver=le
